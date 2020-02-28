@@ -3,25 +3,45 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-st.title('Squirrels of New York')
+st.title('King County House Sales in 2014')
 
-df = pd.read_csv('data/squirrel_census.csv')
+@st.cache
+def load_data():
+    df = pd.read_csv("https://raw.githubusercontent.com/bmcgarry194/knn_workshop/master/data/kc-house-data.zip")
 
-renamed = df.rename(columns={'X': 'lon', 'Y': 'lat'})
-renamed['date_time'] = pd.to_datetime(renamed['Date'], format='%m%d%Y')
-renamed['day'] = renamed['date_time'].dt.day
+    renamed = df.rename(columns={'long': 'lon'})
+    renamed['month_sold'] = pd.to_datetime(renamed['date']).dt.month
+    return renamed
 
-days = renamed['date_time'].dt.day
-day = st.slider('Date Range', min_value=6, max_value=20)
+renamed = load_data()
+# default_zips = [98144, 98112, 98122, 98134, 98109, 98119]
 
-day_data = renamed.loc[renamed['day'] == day, :]
+multi = st.multiselect("Zipcodes", list(renamed['zipcode'].unique()), default=list(renamed['zipcode'].unique()))
 
-st.deck_gl_chart(viewport={'latitude': 40.7829,
-                           'longitude': -73.9654,
-                           'zoom': 13,},
+min_price = renamed['price'].min()
+max_price = renamed['price'].max()
+low, high = st.sidebar.slider('Price Range', min_value=int(min_price), max_value=int(max_price), value=(int(min_price), int(max_price)))
+
+month_data = renamed.loc[(renamed['price'] >= low) &
+                         (renamed['price'] <= high) &
+                         (renamed['zipcode'].isin(multi)), :]
+
+st.deck_gl_chart(viewport={'latitude': 47.6062,
+                           'longitude': -122.3321,
+                           'zoom': 10,},
                 layers=[{'type': 'ScatterplotLayer',
-                         'data': day_data,
+                         'data': month_data,
                          'opacity': .5,
-                         'radiusScale': .3}])
+                         'radiusScale': .9}])
 
-st.bar_chart(day_data['Primary Fur Color'])
+st.sidebar.subheader('Histogram of House Prices')
+hist_values = np.histogram(month_data['price'], bins=24)[0]
+st.sidebar.bar_chart(hist_values)
+
+if st.checkbox('Show raw data'):
+    st.subheader('Raw data')
+    st.write(month_data)
+    
+btn = st.button("Celebrate!")
+if btn:
+    st.balloons()
